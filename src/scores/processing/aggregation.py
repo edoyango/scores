@@ -8,6 +8,7 @@ from typing import Optional
 import array_api_compat
 import xarray as xr
 
+from scores.array_ops import nanmean
 from scores.processing.matching import broadcast_and_match_nan
 from scores.typing import FlexibleDimensionTypes, XarrayLike
 from scores.utils import check_weights
@@ -115,13 +116,7 @@ def aggregate(
         case "mean":
             if weights is not None:
                 return _weighted_mean(values, weights, reduce_dims)
-            if array_api_compat.is_array_api_obj(values):
-                xp = array_api_compat.array_namespace(values)
-                # nanmean not part of the array API standard, but all
-                # relevant members implement it.
-                return xp.nanmean(values, reduce_dims)
-            else:
-                return values.mean(reduce_dims)
+            return nanmean(values, dim=reduce_dims)
         case "sum":
             if weights is not None:
                 return _weighted_sum(values, weights, reduce_dims)
@@ -158,9 +153,7 @@ def _weighted_mean(values, weights, reduce_dims=None):
         xp = array_api_compat.array_namespace(values, weights)
         weighted_error = xp.multiply(values, weights)
         weighted_sum_of_error = xp.nansum(weighted_error)
-        sum_of_weights = xp.sum(
-            xp.where(xp.isnan(values), 0, weights)
-        )
+        sum_of_weights = xp.sum(xp.where(xp.isnan(values), 0, weights))
         weighted_mean = weighted_sum_of_error / sum_of_weights
         return weighted_mean
 
